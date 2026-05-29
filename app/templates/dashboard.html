@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <title>MindSync AI - Dashboard</title>
+</head>
+<body>
+    <header>
+        <h1>MindSync AI Dashboard</h1>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('main.index') }}">Home</a></li>
+                <li><a href="{{ url_for('main.results') }}">Results</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <section>
+            <h2>Your Digital Wellbeing Insights</h2>
+            <div id="analytics">
+                <div class="card">
+                    <h3>Digital Wellbeing Score</h3>
+                    <p>{{ wellbeing_score }}</p>
+                </div>
+                <div class="card">
+                    <h3>Smartphone Addiction Risk</h3>
+                    <p>{{ addiction_risk }}</p>
+                </div>
+                <div class="card">
+                    <h3>Productivity Level</h3>
+                    <p>{{ productivity_level }}</p>
+                </div>
+            </div>
+        </section>
+        <section>
+            <h2>Usage Patterns</h2>
+            <div id="usage-patterns">
+                <canvas id="usageChart"></canvas>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2023 MindSync AI. All rights reserved.</p>
+    </footer>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // JavaScript code to render charts and handle interactivity
+        const ctx = document.getElementById('usageChart').getContext('2d');
+        const usageChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Social Media', 'Gaming', 'Productivity', 'Others'],
+                datasets: [{
+                    label: 'Usage Time (hours)',
+                    data: [{{ social_media_time }}, {{ gaming_time }}, {{ productivity_time }}, {{ other_time }}],
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

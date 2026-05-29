@@ -1,0 +1,12 @@
+[
+  "screen_time",
+  "social_media_usage",
+  "sleep_hours",
+  "study_hours",
+  "exercise_time",
+  "notifications",
+  "app_unlocks",
+  "late_night_usage",
+  "mood_level",
+  "usage_ratio"
+]
