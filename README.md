@@ -1,90 +1,92 @@
 # MindSync AI
 
-MindSync AI is an academic-focused web application designed to analyze user lifestyle and smartphone usage patterns. By leveraging advanced AI and machine learning techniques, MindSync AI predicts key metrics such as Digital Wellbeing Score, Smartphone Addiction Risk, and Productivity Level.
+A web application that analyzes daily lifestyle and smartphone usage patterns to predict digital wellbeing risk using machine learning.
 
-## Features
+## What it does
 
-- **Digital Wellbeing Score Prediction**: Utilizes regression models to assess and predict the user's digital wellbeing based on their smartphone usage patterns.
-- **Smartphone Addiction Risk Assessment**: Implements classification algorithms to evaluate the risk of smartphone addiction, providing users with insights into their usage habits.
-- **Productivity Level Analysis**: Analyzes user data to predict productivity levels, helping users optimize their time and improve efficiency.
-- **Data Visualization Dashboard**: Offers an interactive dashboard for users to visualize their data and predictions, enhancing user engagement and understanding.
+Users enter their daily habits — screen time, sleep, study hours, social media usage, and more — and the app predicts whether they fall into a **Low Risk** or **High Risk** digital wellbeing category, along with personalized recommendations.
 
-## Technologies Used
+## Tech Stack
 
-- **Backend**: Flask (Python)
-- **Machine Learning**: Scikit-learn, Pandas, NumPy
-- **Data Visualization**: Matplotlib, Seaborn
-- **Frontend**: HTML, CSS, JavaScript
+- **Backend:** Flask (Python)
+- **Machine Learning:** Scikit-learn, Pandas, NumPy
+- **Frontend:** Bootstrap 5, HTML, Jinja2
 
 ## Project Structure
 
 ```
-MindSync-AI
-├── app
-│   ├── __init__.py
-│   ├── routes
-│   │   ├── __init__.py
-│   │   └── main.py
-│   ├── templates
-│   │   ├── index.html
-│   │   ├── results.html
-│   │   └── dashboard.html
-│   ├── static
-│   │   ├── css
-│   │   │   └── styles.css
-│   │   └── js
-│   │       └── main.js
-│   └── services
-│       └── predictor.py
-├── ml
-│   ├── datasets
-│   │   ├── raw
-│   │   └── processed
-│   ├── notebooks
-│   │   └── exploration.ipynb
-│   ├── preprocessing
-│   │   └── preprocess.py
-│   ├── regression
-│   │   └── train_regression.py
-│   ├── classification
-│   │   └── train_classification.py
-│   ├── clustering
-│   │   └── train_clustering.py
-│   └── evaluation
-│       └── metrics.py
-├── tests
-│   ├── __init__.py
-│   └── test_app.py
-├── config.py
+MindSync-AI/
+├── app.py                  # Flask app, routes, HTML templates, prediction logic
+├── model_training.py       # End-to-end training pipeline
 ├── requirements.txt
-├── run.py
-└── README.md
+├── README.md
+│
+├── datasets/
+│   ├── raw/                # Source CSVs (do not modify)
+│   │   ├── mental_health_and_technology_usage_2024.csv
+│   │   ├── sleep_mobile_stress_dataset_15000.csv
+│   │   └── user_behavior_dataset.csv
+│   └── processed/          # Auto-generated during training
+│
+├── trained_models/
+│   ├── classifier_model.pkl  # Trained sklearn pipeline
+│   └── features.json         # Feature order used during training
+│
+└── tests/
+    └── test_app.py
 ```
 
-## Installation
+## Getting Started
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/MindSync-AI.git
-   cd MindSync-AI
-   ```
+**1. Install dependencies**
+```bash
+pip install -r requirements.txt
+```
 
-2. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
+**2. Train the model**
+```bash
+python model_training.py
+```
+This reads all CSVs from `datasets/raw/`, trains a Logistic Regression pipeline, and saves the model and feature schema to `trained_models/`.
 
-3. Run the application:
-   ```
-   python run.py
-   ```
+**3. Run the app**
+```bash
+python app.py
+```
+Visit `http://127.0.0.1:5000` in your browser.
 
-4. Open your web browser and navigate to `http://127.0.0.1:5000`.
+**4. Run tests**
+```bash
+python -m pytest tests/test_app.py -v
+```
 
-## Contributing
+## How it works
 
-Contributions are welcome! Please feel free to submit a pull request or open an issue for any suggestions or improvements.
+### Training (`model_training.py`)
+- Loads and merges all raw CSVs
+- Normalizes column names across datasets
+- Builds a consistent feature set, filling missing columns with 0
+- Derives `usage_ratio` = `social_media_usage / screen_time`
+- Trains a pipeline: `SimpleImputer → StandardScaler → LogisticRegression`
+- Saves `classifier_model.pkl` and `features.json`
 
-## License
+### Inference (`app.py`)
+- User submits daily usage values via the web form
+- App validates that total hour-based fields don't exceed 24
+- Builds a DataFrame aligned to `features.json` column order
+- Runs prediction → returns Low Risk or High Risk
+- Generates rule-based personalized recommendations
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Input Fields
+
+| Field | Unit |
+|---|---|
+| Daily Screen Time | hours/day |
+| Social Media Usage | hours/day |
+| Sleep Hours | hours/day |
+| Study / Productivity Hours | hours/day |
+| Exercise Time | hours/day |
+| Notifications | count/day |
+| App Unlocks | count/day |
+| Late Night Usage | ratio 0–1 |
+| Mood Level | 1–10 scale |

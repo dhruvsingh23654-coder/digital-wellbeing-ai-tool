@@ -4,6 +4,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
@@ -11,7 +12,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 
 BASE_DIR = Path(__file__).resolve().parent
-RAW_DIR = BASE_DIR / "ml" / "datasets" / "raw"
+RAW_DIR = BASE_DIR / "datasets" / "raw"
 MODEL_DIR = BASE_DIR / "trained_models"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -79,6 +80,7 @@ def main():
     ]
     X = df[feature_cols].apply(pd.to_numeric, errors="coerce")
 
+    print(y.value_counts())
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y if len(pd.unique(y)) > 1 else None
     )
@@ -89,6 +91,9 @@ def main():
         ("clf", LogisticRegression(max_iter=2000))
     ])
     model.fit(X_train, y_train)
+
+    from sklearn.metrics import classification_report
+    print(classification_report(y_test, model.predict(X_test)))
 
     joblib.dump(model, MODEL_DIR / "classifier_model.pkl")
     (MODEL_DIR / "features.json").write_text(json.dumps(feature_cols, indent=2))
