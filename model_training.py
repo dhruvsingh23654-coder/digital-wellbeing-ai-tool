@@ -4,102 +4,85 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
 
-BASE_DIR = Path(__file__).resolve().parent
-RAW_DIR = BASE_DIR / "datasets" / "raw"
+BASE_DIR  = Path(__file__).resolve().parent
+RAW_DIR   = BASE_DIR / "datasets" / "raw"
 MODEL_DIR = BASE_DIR / "trained_models"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
-def load_all_csvs():
-    frames = []
-    for file in RAW_DIR.glob("*.csv"):
-        df = pd.read_csv(file)
-        df["source_file"] = file.name
-        frames.append(df)
-    if not frames:
-        raise FileNotFoundError(f"No CSV files found in {RAW_DIR}")
-    return pd.concat(frames, ignore_index=True, sort=False)
+# ── Shared pipeline factory ───────────────────────────────────────────────────
 
-def normalize(df):
-    df = df.copy()
-    df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
-    return df
+def make_pipeline():
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler",  StandardScaler()),
+        ("clf",     LogisticRegression(max_iter=2000, class_weight="balanced")),
+    ])
 
-def build_target(df):
-    if "target" in df.columns:
-        return pd.to_numeric(df["target"], errors="coerce").fillna(0).astype(int)
 
-    if "addiction_risk" in df.columns:
-        return pd.to_numeric(df["addiction_risk"], errors="coerce").fillna(0).astype(int)
+def train_and_save(X, y, feature_cols, model_filename, features_filename, label):
+    print(f"\n{'='*50}")
+    print(f"Training: {label}")
+    print(f"Rows: {len(X)} | Features: {feature_cols}")
+    print(f"Class distribution:\n{y.value_counts().to_string()}")
 
-    screen = pd.to_numeric(df.get("screen_time", df.get("daily_screen_time", 0)), errors="coerce").fillna(0)
-    social = pd.to_numeric(df.get("social_media_usage", df.get("social_media_hours", 0)), errors="coerce").fillna(0)
-    return ((screen + social) > (screen + social).median()).astype(int)
-
-def build_features(df):
-    df = df.copy()
-    mapping = {
-        "daily_screen_time": "screen_time",
-        "screen_time_hours": "screen_time",
-        "social_media_hours": "social_media_usage",
-        "sleep_duration": "sleep_hours",
-        "study_hours": "study_hours",
-        "exercise_time": "exercise_time",
-        "notifications": "notifications",
-        "app_unlocks": "app_unlocks",
-        "late_night_usage": "late_night_usage",
-        "mood_level": "mood_level",
-    }
-    df = df.rename(columns={k: v for k, v in mapping.items() if k in df.columns})
-
-    for col in [
-        "screen_time", "social_media_usage", "sleep_hours", "study_hours",
-        "exercise_time", "notifications", "app_unlocks", "late_night_usage", "mood_level"
-    ]:
-        if col not in df.columns:
-            df[col] = 0
-
-    df["usage_ratio"] = df["social_media_usage"] / (df["screen_time"] + 1e-5)
-    return df
-
-def main():
-    df = normalize(load_all_csvs())
-    df = build_features(df)
-    y = build_target(df)
-
-    feature_cols = [
-        "screen_time", "social_media_usage", "sleep_hours", "study_hours",
-        "exercise_time", "notifications", "app_unlocks", "late_night_usage",
-        "mood_level", "usage_ratio"
-    ]
-    X = df[feature_cols].apply(pd.to_numeric, errors="coerce")
-
-    print(y.value_counts())
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y if len(pd.unique(y)) > 1 else None
+        X, y, test_size=0.2, random_state=42,
+        stratify=y if y.nunique() > 1 else None
     )
 
-    model = Pipeline([
-        ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler()),
-        ("clf", LogisticRegression(max_iter=2000))
-    ])
+    model = make_pipeline()
     model.fit(X_train, y_train)
 
-    from sklearn.metrics import classification_report
-    print(classification_report(y_test, model.predict(X_test)))
+    print(f"\nEvaluation ({label}):")
+    print(classification_report(y_test, model.predict(X_test), zero_division=0))
 
-    joblib.dump(model, MODEL_DIR / "classifier_model.pkl")
-    (MODEL_DIR / "features.json").write_text(json.dumps(feature_cols, indent=2))
+    joblib.dump(model, MODEL_DIR / model_filename)
+    (MODEL_DIR / features_filename).write_text(json.dumps(feature_cols, indent=2))
+    print(f"Saved: {model_filename}, {features_filename}")
 
-    print("Training complete.")
-    print(f"Saved: {MODEL_DIR / 'classifier_model.pkl'}")
+def train_sleep_stress():
+    df = pd.read_csv(RAW_DIR / "sleep_mobile_stress_dataset_15000.csv")
+    df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
+
+    # Normalize exercise: convert minutes → hours
+    df["physical_activity_hours"] = df["physical_activity_minutes"] / 60
+
+    # Normalize late night: convert minutes (0–120+) → ratio (0–1)
+    df["late_night_ratio"] = (df["phone_usage_before_sleep_minutes"] / 120).clip(0, 1)
+
+    feature_cols = [
+        "daily_screen_time_hours",
+        "sleep_duration_hours",
+        "physical_activity_hours",
+        "notifications_received_per_day",
+        "late_night_ratio",
+        "mental_fatigue_score",
+    ]
+
+    X = df[feature_cols].apply(pd.to_numeric, errors="coerce")
+
+    # Target: stress_level above median = High Risk
+    median_stress = df["stress_level"].median()
+    y = (df["stress_level"] > median_stress).astype(int)
+
+    train_and_save(
+        X, y,
+        feature_cols=feature_cols,
+        model_filename="sleep_stress_model.pkl",
+        features_filename="sleep_stress_features.json",
+        label="Sleep & Stress Model"
+    )
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    main()
+    train_sleep_stress()
+    print("\nModel trained and saved.")

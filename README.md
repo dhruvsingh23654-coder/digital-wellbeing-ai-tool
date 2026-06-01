@@ -1,36 +1,35 @@
 # MindSync AI
 
-A web application that analyzes daily lifestyle and smartphone usage patterns to predict digital wellbeing risk using machine learning.
+An academic web application that analyzes daily lifestyle and smartphone usage patterns to predict sleep and stress risk using machine learning.
 
 ## What it does
 
-Users enter their daily habits — screen time, sleep, study hours, social media usage, and more — and the app predicts whether they fall into a **Low Risk** or **High Risk** digital wellbeing category, along with personalized recommendations.
+Users enter their daily habits — screen time, sleep, study hours, social media usage, and more — and the app predicts whether they fall into a **Low Risk** or **High Risk** category for sleep and stress, along with personalized recommendations.
 
 ## Tech Stack
 
-- **Backend:** Flask (Python)
+- **Backend:** Flask
 - **Machine Learning:** Scikit-learn, Pandas, NumPy
-- **Frontend:** Bootstrap 5, HTML, Jinja2
+- **Frontend:** Bootstrap 5, Jinja2
+- **Server:** Gunicorn (production)
 
 ## Project Structure
 
 ```
 MindSync-AI/
-├── app.py                  # Flask app, routes, HTML templates, prediction logic
-├── model_training.py       # End-to-end training pipeline
+├── app.py                  # Flask app, routes, templates, prediction logic
+├── model_training.py       # Training pipeline
 ├── requirements.txt
 ├── README.md
 │
 ├── datasets/
-│   ├── raw/                # Source CSVs (do not modify)
-│   │   ├── mental_health_and_technology_usage_2024.csv
-│   │   ├── sleep_mobile_stress_dataset_15000.csv
-│   │   └── user_behavior_dataset.csv
-│   └── processed/          # Auto-generated during training
+│   └── raw/
+│       ├── mental_health_and_technology_usage_2024.csv
+│       └── sleep_mobile_stress_dataset_15000.csv
 │
 ├── trained_models/
-│   ├── classifier_model.pkl  # Trained sklearn pipeline
-│   └── features.json         # Feature order used during training
+│   ├── sleep_stress_model.pkl       # Trained sklearn pipeline (94% accuracy)
+│   └── sleep_stress_features.json   # Feature schema used at inference
 │
 └── tests/
     └── test_app.py
@@ -47,7 +46,7 @@ pip install -r requirements.txt
 ```bash
 python model_training.py
 ```
-This reads all CSVs from `datasets/raw/`, trains a Logistic Regression pipeline, and saves the model and feature schema to `trained_models/`.
+Trains the sleep/stress model and saves artifacts to `trained_models/`.
 
 **3. Run the app**
 ```bash
@@ -62,20 +61,24 @@ python -m pytest tests/test_app.py -v
 
 ## How it works
 
-### Training (`model_training.py`)
-- Loads and merges all raw CSVs
-- Normalizes column names across datasets
-- Builds a consistent feature set, filling missing columns with 0
-- Derives `usage_ratio` = `social_media_usage / screen_time`
-- Trains a pipeline: `SimpleImputer → StandardScaler → LogisticRegression`
-- Saves `classifier_model.pkl` and `features.json`
+### Sleep & Stress Risk (ML model)
+A logistic regression pipeline (`SimpleImputer → StandardScaler → LogisticRegression`) trained on `sleep_mobile_stress_dataset_15000.csv` (15,000 records, 94% accuracy).
 
-### Inference (`app.py`)
-- User submits daily usage values via the web form
-- App validates that total hour-based fields don't exceed 24
-- Builds a DataFrame aligned to `features.json` column order
-- Runs prediction → returns Low Risk or High Risk
-- Generates rule-based personalized recommendations
+| App field | Model feature |
+|---|---|
+| screen_time | daily_screen_time_hours |
+| sleep_hours | sleep_duration_hours |
+| exercise_time | physical_activity_hours |
+| notifications | notifications_received_per_day |
+| late_night_usage | late_night_ratio |
+| mood_level (inverted) | mental_fatigue_score |
+
+### Training (`model_training.py`)
+- Loads and preprocesses `sleep_mobile_stress_dataset_15000.csv`
+- Normalizes units (exercise minutes → hours, late night minutes → 0–1 ratio)
+- Inverts mood level to derive mental fatigue proxy
+- Trains with `class_weight="balanced"` to handle class imbalance
+- Saves model artifact and feature schema to `trained_models/`
 
 ## Input Fields
 
@@ -90,3 +93,7 @@ python -m pytest tests/test_app.py -v
 | App Unlocks | count/day |
 | Late Night Usage | ratio 0–1 |
 | Mood Level | 1–10 scale |
+
+## License
+
+MIT License

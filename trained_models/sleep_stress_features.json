@@ -1,0 +1,8 @@
+[
+  "daily_screen_time_hours",
+  "sleep_duration_hours",
+  "physical_activity_hours",
+  "notifications_received_per_day",
+  "late_night_ratio",
+  "mental_fatigue_score"
+]
