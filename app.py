@@ -4,53 +4,46 @@ import joblib
 import pandas as pd
 from flask import Flask, request, render_template_string
 
-BASE_DIR       = Path(__file__).resolve().parent
-MODEL_DIR      = BASE_DIR / "trained_models"
-SLEEP_MODEL    = MODEL_DIR / "sleep_stress_model.pkl"
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_DIR = BASE_DIR / "trained_models"
+SLEEP_MODEL = MODEL_DIR / "sleep_stress_model.pkl"
 SLEEP_FEATURES = MODEL_DIR / "sleep_stress_features.json"
 
 app = Flask(__name__)
 
 FIELD_CONFIG = [
-    {"name": "screen_time",        "label": "Daily Screen Time",         "unit": "hours/day",  "help": "Total phone usage in a day.",    "step": "0.1", "min": "0", "max": "24",  "placeholder": "6.5"},
-    {"name": "social_media_usage", "label": "Social Media Usage",         "unit": "hours/day",  "help": "Time spent on social apps.",      "step": "0.1", "min": "0", "max": "24",  "placeholder": "2.0"},
-    {"name": "sleep_hours",        "label": "Sleep Hours",                "unit": "hours/day",  "help": "Average sleep duration.",         "step": "0.1", "min": "0", "max": "24",  "placeholder": "7.5"},
-    {"name": "study_hours",        "label": "Study / Productivity Hours", "unit": "hours/day",  "help": "Time spent on study or work.",    "step": "0.1", "min": "0", "max": "24",  "placeholder": "4.0"},
-    {"name": "exercise_time",      "label": "Exercise Time",              "unit": "hours/day",  "help": "Physical activity per day.",      "step": "0.1", "min": "0", "max": "24",  "placeholder": "0.5"},
-    {"name": "notifications",      "label": "Notifications",              "unit": "count/day",  "help": "Approximate alerts received.",    "step": "1",   "min": "0", "max": "500", "placeholder": "60"},
-    {"name": "app_unlocks",        "label": "App Unlocks",                "unit": "count/day",  "help": "Phone unlock frequency.",         "step": "1",   "min": "0", "max": "500", "placeholder": "80"},
-    {"name": "late_night_usage",   "label": "Late Night Usage",           "unit": "ratio 0-1",  "help": "Usage after 11 PM.",              "step": "0.1", "min": "0", "max": "1",   "placeholder": "0.2"},
-    {"name": "mood_level",         "label": "Mood Level",                 "unit": "1-10 scale", "help": "Self-reported mood score.",       "step": "0.1", "min": "1", "max": "10",  "placeholder": "6.0"},
+    {"name": "screen_time", "label": "Daily Screen Time", "unit": "hours/day", "help": "Total phone usage in a day.", "step": "0.1", "min": "0", "max": "24", "placeholder": "6.5"},
+    {"name": "social_media_usage", "label": "Social Media Usage", "unit": "hours/day", "help": "Time spent on social apps.", "step": "0.1", "min": "0", "max": "24", "placeholder": "2.0"},
+    {"name": "sleep_hours", "label": "Sleep Hours", "unit": "hours/day", "help": "Average sleep duration.", "step": "0.1", "min": "0", "max": "24", "placeholder": "7.5"},
+    {"name": "study_hours", "label": "Study / Productivity Hours", "unit": "hours/day", "help": "Time spent on study or work.", "step": "0.1", "min": "0", "max": "24", "placeholder": "4.0"},
+    {"name": "exercise_time", "label": "Exercise Time", "unit": "hours/day", "help": "Physical activity per day.", "step": "0.1", "min": "0", "max": "24", "placeholder": "0.5"},
+    {"name": "notifications", "label": "Notifications", "unit": "count/day", "help": "Approximate alerts received.", "step": "1", "min": "0", "max": "500", "placeholder": "60"},
+    {"name": "app_unlocks", "label": "App Unlocks", "unit": "count/day", "help": "Phone unlock frequency.", "step": "1", "min": "0", "max": "500", "placeholder": "80"},
+    {"name": "late_night_usage", "label": "Late Night Usage", "unit": "ratio 0-1", "help": "Usage after 11 PM.", "step": "0.1", "min": "0", "max": "1", "placeholder": "0.2"},
+    {"name": "mood_level", "label": "Mood Level", "unit": "1-10 scale", "help": "Self-reported mood score.", "step": "0.1", "min": "1", "max": "10", "placeholder": "6.0"},
 ]
 
 HOUR_FIELDS = ["screen_time", "social_media_usage", "sleep_hours", "study_hours", "exercise_time"]
-
-
-# ── Model helpers ─────────────────────────────────────────────────────────────
 
 def load_model():
     if not SLEEP_MODEL.exists():
         raise FileNotFoundError("Model not found. Run model_training.py first.")
     return joblib.load(SLEEP_MODEL)
 
-
 def load_features():
     if not SLEEP_FEATURES.exists():
         raise FileNotFoundError("features.json not found. Run model_training.py first.")
     return json.loads(SLEEP_FEATURES.read_text())
 
-
-# ── Prediction ────────────────────────────────────────────────────────────────
-
 def predict_stress_risk(data: dict) -> str:
     feature_names = load_features()
     model_input = {
-        "daily_screen_time_hours":        data.get("screen_time", 0),
-        "sleep_duration_hours":           data.get("sleep_hours", 0),
-        "physical_activity_hours":        data.get("exercise_time", 0),
+        "daily_screen_time_hours": data.get("screen_time", 0),
+        "sleep_duration_hours": data.get("sleep_hours", 0),
+        "physical_activity_hours": data.get("exercise_time", 0),
         "notifications_received_per_day": data.get("notifications", 0),
-        "late_night_ratio":               data.get("late_night_usage", 0),
-        "mental_fatigue_score":           10 - data.get("mood_level", 5),
+        "late_night_ratio": data.get("late_night_usage", 0),
+        "mental_fatigue_score": 10 - data.get("mood_level", 5),
     }
     df = pd.DataFrame([model_input])
     for col in feature_names:
@@ -60,20 +53,17 @@ def predict_stress_risk(data: dict) -> str:
     pred  = int(model.predict(df[feature_names])[0])
     return "High Risk" if pred == 1 else "Low Risk"
 
-
-# ── Recommendations ───────────────────────────────────────────────────────────
-
 def compute_recommendations(data: dict, result: str) -> list:
-    recs     = []
-    st       = data.get("screen_time", 0)
-    social   = data.get("social_media_usage", 0)
-    sleep    = data.get("sleep_hours", 0)
-    study    = data.get("study_hours", 0)
+    recs = []
+    st = data.get("screen_time", 0)
+    social = data.get("social_media_usage", 0)
+    sleep = data.get("sleep_hours", 0)
+    study = data.get("study_hours", 0)
     exercise = data.get("exercise_time", 0)
-    late     = data.get("late_night_usage", 0)
-    notif    = data.get("notifications", 0)
-    unlocks  = data.get("app_unlocks", 0)
-    mood     = data.get("mood_level", 5)
+    late = data.get("late_night_usage", 0)
+    notif = data.get("notifications", 0)
+    unlocks = data.get("app_unlocks", 0)
+    mood = data.get("mood_level", 5)
 
     if st >= 10:
         recs.append("Limit non-essential screen time; set app timers for 30–60 minutes.")
@@ -121,9 +111,6 @@ def compute_recommendations(data: dict, result: str) -> list:
 
     return recs[:6]
 
-
-# ── HTML templates ────────────────────────────────────────────────────────────
-
 BASE_HTML_START = """
 <!doctype html>
 <html lang="en">
@@ -133,20 +120,20 @@ BASE_HTML_START = """
   <title>MindSync</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body          { background:#f6f8fb; color:#2b2f36; font-size:0.9rem; }
-    .navbar       { background:#22313f !important; }
-    .brand        { font-weight:600; letter-spacing:0.2px; }
-    .card         { border:1px solid #e6eaf0; border-radius:12px; }
-    .page-title   { font-size:1.35rem; font-weight:600; margin-bottom:0.25rem; }
-    .subtle       { color:#6c757d; font-size:0.88rem; }
-    .form-label   { font-size:0.85rem; font-weight:600; margin-bottom:0.25rem; }
-    .form-text    { font-size:0.78rem; color:#6c757d; }
+    body { background:#f6f8fb; color:#2b2f36; font-size:0.9rem; }
+    .navbar { background:#22313f !important; }
+    .brand { font-weight:600; letter-spacing:0.2px; }
+    .card { border:1px solid #e6eaf0; border-radius:12px; }
+    .page-title { font-size:1.35rem; font-weight:600; margin-bottom:0.25rem; }
+    .subtle { color:#6c757d; font-size:0.88rem; }
+    .form-label { font-size:0.85rem; font-weight:600; margin-bottom:0.25rem; }
+    .form-text { font-size:0.78rem; color:#6c757d; }
     .form-control { font-size:0.88rem; padding:0.6rem 0.75rem; }
-    .badge-soft   { background:#f0f6f2; color:#1f6f5a; border:1px solid #d9efe6; font-weight:500; }
-    .result-box   { background:#fbfcfe; border:1px solid #e6eaf0; border-radius:10px; padding:0.9rem; }
-    .risk-high    { color:#dc3545; font-weight:600; }
-    .risk-low     { color:#198754; font-weight:600; }
-    .rec-list     { margin:0; padding-left:1.1rem; color:#2b2f36; }
+    .badge-soft { background:#f0f6f2; color:#1f6f5a; border:1px solid #d9efe6; font-weight:500; }
+    .result-box { background:#fbfcfe; border:1px solid #e6eaf0; border-radius:10px; padding:0.9rem; }
+    .risk-high { color:#dc3545; font-weight:600; }
+    .risk-low { color:#198754; font-weight:600; }
+    .rec-list { margin:0; padding-left:1.1rem; color:#2b2f36; }
   </style>
 </head>
 <body>
@@ -270,18 +257,14 @@ document.getElementById('predict-form').addEventListener('submit', function (e) 
 </html>
 """
 
-
-# ── Routes ────────────────────────────────────────────────────────────────────
-
 @app.route("/")
 def home():
     return HOME_HTML
 
-
 @app.route("/predict", methods=["GET", "POST"])
 def predict():
-    error           = None
-    result          = None
+    error = None
+    result = None
     recommendations = []
 
     if request.method == "POST":
@@ -291,10 +274,9 @@ def predict():
             total_hours = sum(data[f] for f in HOUR_FIELDS)
             if total_hours > 24:
                 error = f"Total hours exceed 24 (you entered {total_hours:.1f} hrs). Please adjust."
-                return render_template_string(FORM_HTML, fields=FIELD_CONFIG, result=None,
-                                             error=error, request=request, recommendations=[])
+                return render_template_string(FORM_HTML, fields=FIELD_CONFIG, result=None, error=error, request=request, recommendations=[])
 
-            result          = predict_stress_risk(data)
+            result = predict_stress_risk(data)
             recommendations = compute_recommendations(data, result)
 
         except FileNotFoundError as e:
@@ -302,9 +284,7 @@ def predict():
         except Exception:
             error = "Prediction failed. Ensure the model is trained and feature list is correct."
 
-    return render_template_string(FORM_HTML, fields=FIELD_CONFIG, result=result,
-                                  error=error, request=request, recommendations=recommendations)
-
-
+    return render_template_string(FORM_HTML, fields=FIELD_CONFIG, result=result, error=error, request=request, recommendations=recommendations)
+    
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False)
