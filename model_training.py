@@ -11,18 +11,16 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
 
-BASE_DIR  = Path(__file__).resolve().parent
-RAW_DIR   = BASE_DIR / "datasets" / "raw"
+BASE_DIR = Path(__file__).resolve().parent
+RAW_DIR = BASE_DIR / "datasets" / "raw"
 MODEL_DIR = BASE_DIR / "trained_models"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
-
-# ── Shared pipeline factory ───────────────────────────────────────────────────
 
 def make_pipeline():
     return Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
-        ("scaler",  StandardScaler()),
-        ("clf",     LogisticRegression(max_iter=2000, class_weight="balanced")),
+        ("scaler", StandardScaler()),
+        ("clf", LogisticRegression(max_iter=2000, class_weight="balanced")),
     ])
 
 
@@ -51,10 +49,8 @@ def train_sleep_stress():
     df = pd.read_csv(RAW_DIR / "sleep_mobile_stress_dataset_15000.csv")
     df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
 
-    # Normalize exercise: convert minutes → hours
     df["physical_activity_hours"] = df["physical_activity_minutes"] / 60
 
-    # Normalize late night: convert minutes (0–120+) → ratio (0–1)
     df["late_night_ratio"] = (df["phone_usage_before_sleep_minutes"] / 120).clip(0, 1)
 
     feature_cols = [
@@ -68,7 +64,6 @@ def train_sleep_stress():
 
     X = df[feature_cols].apply(pd.to_numeric, errors="coerce")
 
-    # Target: stress_level above median = High Risk
     median_stress = df["stress_level"].median()
     y = (df["stress_level"] > median_stress).astype(int)
 
@@ -79,9 +74,6 @@ def train_sleep_stress():
         features_filename="sleep_stress_features.json",
         label="Sleep & Stress Model"
     )
-
-
-# ── Main ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     train_sleep_stress()
